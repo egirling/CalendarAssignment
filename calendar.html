@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang = "en">
+    <head>
+        <title>Calendar</title>
+        <link rel="stylesheet" href="calendarStyle.css">
+        <script src = "http://classes.engineering.wustl.edu/cse330/content/calendar.min.js"></script>
+      
+        
+
+    </head>
+    <body>
+       
+        <script>
+        let events = [];
+        let year = 2022;
+        let monthNum = 9;
+        let token = -1;
+        
+        let userId = -1;
+        let currentMonth = new Month(2022, 9); 
+        async function loginAjax(event) {
+            const username = String(document.getElementById("username").value); // Get the username from the form
+            const password = String(document.getElementById("password").value); // Get the password from the form
+            
+           // Make a URL-encoded string for passing POST data:
+            const data = { 'username': username, 'password': password };
+            let info = "";
+
+
+
+            let response = await fetch("http://ec2-54-153-91-49.us-west-1.compute.amazonaws.com/~egirling/calendar/checkuser.php", {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: { 'content-type': 'application/json'}
+            })
+            if (response.ok) {
+                info = await response.json();
+                //console.log(info);
+                if(info.success == true){
+                    document.getElementById("loginMsg").innerHTML = "logged in";
+                    token = String(info.token);
+                    userId = String(info.userId);
+                   
+                    
+                    updateCalendar();
+
+                }
+             }
+             
+            
+        }
+        async function checkLoggedIn(){
+            let response = await fetch("isLoggedIn.php", {
+                method: 'POST',
+                //body: JSON.stringify(data),
+                headers: { 'content-type': 'application/json'}
+            })
+            if (response.ok) {
+                info = await response.json();
+                //console.log(info);
+                if(info.success == true){
+                    document.getElementById("loginMsg").innerHTML = "logged in";
+                    token = info.token;
+                    userId = String(info.userId);
+                    updateCalendar();
+
+                }
+             }
+
+        }
+
+        async function loggoutUser(){
+            let response = await fetch("logoutUser.php", {
+                method: 'POST',
+                //body: JSON.stringify(data),
+                headers: { 'content-type': 'application/json'}
+            })
+            if (response.ok) {
+                    token = -1;
+                    userId = -1;
+                    document.getElementById("loginMsg").innerHTML = "logged out";
+                    updateCalendar();
+
+                
+             }
+
+        }
+
+        function registerAjax(event) {
+            const newUsername = String(document.getElementById("newUsername").value); // Get the username from the form
+            const newPassword = String(document.getElementById("newPassword").value); // Get the password from the form
+            
+
+            const data = {'newUsername': newUsername, 'newPassword': newPassword };
+            //console.log(JSON.stringify(data));
+            
+            fetch("registerUser.php", {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: { 'content-type': 'application/json' }
+            })
+                .then(response => response.json())
+                .then(data => document.getElementById("registerMsg").innerHTML = (data.success ? "You've registered!" : `You were not registered ${data.message}`))
+                .catch(err => console.error(err));
+
+
+
+        }
+
+
+        function addEvent(){
+            let eventName = String(document.getElementById("eventName").value);
+            //console.log(eventName);
+            selectElement1 = document.querySelector('#month');
+            let month = String(selectElement1.value);
+           
+           // console.log(month);
+            let givenYear = Number(document.getElementById("givenYear").value);
+            //console.log(givenYear);
+
+            let hour = Number(document.getElementById("hour").value);
+            //console.log(hour);
+
+            let minutes = Number(document.getElementById("minute").value);
+            //console.log(minutes);
+           
+            selectElement2 = document.querySelector('#ampm');
+            let ampm = String(selectElement2.value);
+            //console.log(ampm);
+
+            let day = Number(document.getElementById("day").value);
+            //console.log(day);
+
+            selectElement3 = document.querySelector('#tag');
+            let tag = String(selectElement3.value);
+            //console.log(tag);
+
+            
+
+
+            //console.log("here");
+            if(month == "February"){
+               
+                if(day > 28 || day <= 0){
+                    alert("Invalid date try again");
+                    return;
+                }
+            }
+         
+            if(month == "September" || month == "April"|| month == "June" || month =="November"){
+                if(day > 30 || day <= 0){
+                    alert("Invalid date try again");
+                    return;
+                }
+            }
+            
+            else{
+                if(day > 31 || day <0){
+                
+                    alert("Invalid date try again");
+                    return;
+                }
+            }
+            if(givenYear<=0){
+                alert("Invalid year try again");
+                    return;
+            }
+
+            if(hour >12 || hour <1){
+                alert("Invalid hour try again");
+                    return;
+            }
+            if(minutes >60 || minutes <0){
+                alert("Invalid minute try again");
+                    return;
+            }
+
+            
+
+
+            const data = {'eventName': eventName, 'month': month, 'year': givenYear, 'hour': hour,
+                            'minute': minutes, 'ampm' : ampm, 'day':day, 'tag': tag, 'token': token};
+            
+           
+            fetch("addEvent.php", {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: { 'content-type': 'application/json' }
+            })
+                .then(response => response.json())
+                .then(data => document.getElementById("addEventMsg").innerHTML = (data.success ? "Event added successfully" : `Error adding event ${data.message}`))
+                .then(updateCalendar())
+                .then(console.log("afterupdate"))
+                .then(updateCalendar())
+                .catch(err => console.error(err));
+                updateCalendar();
+            
+        }
+
+
+        async function getEventsForThisMonth() {  //gets a list of all the events (including date, time, name ...) happening in current month from table
+            const monthNames = ["January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"];
+            const monthName = monthNames[monthNum]; 
+            const yearToGet = year;
+            //let thisevents = [];
+
+            const data = {'monthName': monthName, 'year': yearToGet };
+            
+
+            let response = await fetch("getEventsForThisMonth.php", {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: { 'content-type': 'application/json'}
+            })
+            if (response.ok) {
+                events = await response.json();
+
+        }
+    }
+    
+
+
+                    function deleteEvent(){
+                            let eventName = String(document.getElementById("deventName").value);
+                           // console.log(eventName);
+                            selectElement1 = document.querySelector('#dmonth');
+                            let month = selectElement1.value;
+                        
+                            //console.log(month);
+                            let givenYear = Number(document.getElementById("dgivenYear").value);
+                            //console.log(givenYear);
+
+                            let hour = Number(document.getElementById("dhour").value);
+                           // console.log(hour);
+
+                            let minutes = Number(document.getElementById("dminute").value);
+                           // console.log(minutes);
+                        
+                            selectElement2 = document.querySelector('#dampm');
+                            let ampm = selectElement2.value;
+                           // console.log(ampm);
+
+                            let day = Number(document.getElementById("dday").value);
+                           // console.log(day);
+
+                            selectElement3 = document.querySelector('#dtag');
+                            let tag = selectElement3.value;
+                           // console.log(tag);
+
+
+                            //console.log("here");
+                            if(month == "February"){
+                            
+                                if(day > 28 || day <= 0){
+                                    alert("Invalid date try again");
+                                    return;
+                                }
+                            }
+                        
+                            if(month == "September" || month == "April"|| month == "June" || month =="November"){
+                                if(day > 30 || day <= 0){
+                                    alert("Invalid date try again");
+                                    return;
+                                }
+                            }
+                            
+                            else{
+                                if(day > 31 || day <0){
+                                
+                                    alert("Invalid date try again");
+                                    return;
+                                }
+                            }
+                            if(givenYear<=0){
+                                alert("Invalid year try again");
+                                    return;
+                            }
+
+                            if(hour >12 || hour <1){
+                                alert("Invalid hour try again");
+                                    return;
+                            }
+                            if(minutes >60 || minutes <0){
+                                alert("Invalid minute try again");
+                                    return;
+                            }
+
+                            
+
+
+                            const data = {'eventName': eventName, 'month': month, 'year': givenYear, 'hour': hour,
+                                            'minute': minutes, 'ampm' : ampm, 'day':day, 'tag': tag, 'token': token};
+                            console.log(token);
+                            //console.log(JSON.stringify(data));
+                            fetch("deleteEvent.php", {
+                                method: 'POST',
+                                body: JSON.stringify(data),
+                                headers: { 'content-type': 'application/json' }
+                            })
+                                .then(response => response.json())
+                                .then(data => document.getElementById("addEventMsg").innerHTML = (data.success ? "Event deleted successfully" : `Error deleting event ${data.message}`))
+                                .then(updateCalendar())
+                                .catch(err => console.error(err));
+
+                        updateCalendar();
+                            
+                        }
+
+function editEvent(){
+   
+    //first part is deleting old event
+    let eventName = String(document.getElementById("oeventName").value);
+                           // console.log(eventName);
+                            selectElement1 = document.querySelector('#omonth');
+                            let month = selectElement1.value;
+                        
+                            //console.log(month);
+                            let givenYear = Number(document.getElementById("ogivenYear").value);
+                           // console.log(givenYear);
+
+                            let hour = Number(document.getElementById("ohour").value);
+                           // console.log(hour);
+
+                            let minutes = Number(document.getElementById("ominute").value);
+                           // console.log(minutes);
+                        
+                            selectElement2 = document.querySelector('#oampm');
+                            let ampm = selectElement2.value;
+                           // console.log(ampm);
+
+                            let day = Number(document.getElementById("oday").value);
+                           // console.log(day);
+
+                            selectElement3 = document.querySelector('#otag');
+                            let tag = selectElement3.value;
+                           // console.log(tag);
+
+
+                           // console.log("here");
+                            if(month == "February"){
+                            
+                                if(day > 28 || day <= 0){
+                                    alert("Invalid date try again");
+                                    return;
+                                }
+                            }
+                        
+                            if(month == "September" || month == "April"|| month == "June" || month =="November"){
+                                if(day > 30 || day <= 0){
+                                    alert("Invalid date try again");
+                                    return;
+                                }
+                            }
+                            
+                            else{
+                                if(day > 31 || day <0){
+                                
+                                    alert("Invalid date try again");
+                                    return;
+                                }
+                            }
+                            if(givenYear<=0){
+                                alert("Invalid year try again");
+                                    return;
+                            }
+
+                            if(hour >12 || hour <1){
+                                alert("Invalid hour try again");
+                                    return;
+                            }
+                            if(minutes >60 || minutes <0){
+                                alert("Invalid minute try again");
+                                    return;
+                            }
+
+                            
+
+
+                            const data = {'eventName': eventName, 'month': month, 'year': givenYear, 'hour': hour,
+                                            'minute': minutes, 'ampm' : ampm, 'day':day, 'tag': tag, 'token': token};
+                            
+                            //console.log(JSON.stringify(data));
+                            fetch("deleteEvent.php", {
+                                method: 'POST',
+                                body: JSON.stringify(data),
+                                headers: { 'content-type': 'application/json' }
+                            })
+                                .then(response => response.json())
+                                .then(data => document.getElementById("addEventMsg").innerHTML = (data.success ? "Event deleted successfully" : `Error deleting event ${data.message}`))
+                                .then(updateCalendar())
+                                .catch(err => console.error(err));
+
+
+
+
+
+     //second part is making new event
+      let neventName = String(document.getElementById("neventName").value);
+           // console.log(neventName);
+            selectElement1 = document.querySelector('#nmonth');
+             let nmonth = selectElement1.value;
+           
+           // console.log(nmonth);
+             let ngivenYear = Number(document.getElementById("ngivenYear").value);
+           // console.log(ngivenYear);
+
+             let nhour = Number(document.getElementById("nhour").value);
+           // console.log(nhour);
+
+             let nminutes = Number(document.getElementById("nminute").value);
+           // console.log(nminutes);
+           
+            selectElement2 = document.querySelector('#nampm');
+             let nampm = selectElement2.value;
+           // console.log(nampm);
+
+             let nday = Number(document.getElementById("nday").value);
+           // console.log(nday);
+            
+            selectElement3 = document.querySelector('#ntag');
+            let ntag = selectElement3.value;
+            //console.log(ntag);
+
+
+           // console.log("here");
+            if(nmonth == "February"){
+               
+                if(nday > 28 || nday <= 0){
+                    alert("Invalid date try again");
+                    return;
+                }
+            }
+         
+            if(nmonth == "September" || nmonth == "April"|| nmonth == "June" || nmonth =="November"){
+                if(nday > 30 || nday <= 0){
+                    alert("Invalid date try again");
+                    return;
+                }
+            }
+            
+            else{
+                if(nday > 31 || nday <0){
+                
+                    alert("Invalid date try again");
+                    return;
+                }
+            }
+            if(ngivenYear<=0){
+                alert("Invalid year try again");
+                    return;
+            }
+
+            if(nhour >12 || nhour <1){
+                alert("Invalid hour try again");
+                    return;
+            }
+            if(nminutes >60 || nminutes <0){
+                alert("Invalid minute try again");
+                    return;
+            }
+
+            
+
+
+            const ndata = {'eventName': neventName, 'month': nmonth, 'year': ngivenYear, 'hour': nhour,
+                            'minute': nminutes, 'ampm' : nampm, 'day': nday, 'tag': ntag, 'token': token};
+            
+            //console.log(JSON.stringify(data));
+            fetch("addEvent.php", {
+                method: 'POST',
+                body: JSON.stringify(ndata),
+                headers: { 'content-type': 'application/json' }
+            })
+                .then(response => response.json())
+                .then(data => document.getElementById("addEventMsg").innerHTML = (data.success ? "Event edited successfully" : `Error editing event ${data.message}`))
+                .then(updateCalendar())
+                .then(updateCalendar())
+                .catch(err => console.error(err));
+
+
+                updateCalendar();
+}
+
+
+
+
+
+
+  async function updateCalendar(){
+
+        let weeks = currentMonth.getWeeks();
+        let weekNum = 0;
+
+        const monthNames = ["January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"];
+            const monthName = monthNames[monthNum]; 
+            const yearToGet = year;
+            //let thisevents = [];
+
+            const data = {'monthName': monthName, 'year': yearToGet, 'userId': userId, 'token':token };
+            
+
+            let response = await fetch("getEventsForThisMonth.php", {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: { 'content-type': 'application/json'}
+            })
+            if (response.ok) {
+                events = await response.json();
+                
+
+
+
+
+
+        for(let w in weeks){
+            let days = weeks[w].getDates();
+           
+            weekNum = weekNum + 1;
+
+            for(let d in days){
+                
+
+                let mdays = String(days[d]) //gets the info for days of the current week
+            
+                let week = mdays.split(" "); //makes array out of info
+        
+
+                let set = String(week[2])
+                let num = String(weekNum);
+                let thisId = num.concat(week[0]); //id for MOn jan 1st  = 1Mon
+
+                document.getElementById(thisId).innerHTML = set;
+                //getting events for this day
+
+                for (let i = 0; i < events.length; i++){
+                    let thisEvent = String(events[i]);
+                    let day = Number(events[i].day);
+                   
+                    
+                    //console.log(week[2]);  //gets the actual date of the day
+
+                    if(Number(day) == Number(week[2])){
+                        //console.log(events[i]);
+                        if((num <5 || day >20) && (num >1 || day < 20) ){
+                            
+                                      
+                        let tag = document.createElement("div");  //creates div
+                        let eventType = String(events[i].tag);
+                        
+                       
+                        let minute = String(events[i].minute);
+                        if(minute.length == 1){
+                            minute = "0".concat(String(minute));
+
+                        }
+                        let text = document.createTextNode(String(events[i].eventName).concat(" ", events[i].hour, ":", minute, events[i].ampm)); //makes text to put in div
+                        tag.appendChild(text); //puts text in div
+                        let newID = String(year).concat("-", String(monthNum), "-", set);  //creates new id ex(2022-9-25)
+                        
+                        tag.setAttribute("id", newID);  //sets the new elements id to the new id
+                        tag.setAttribute("class", eventType)
+                        
+                        let element = document.getElementById(thisId); //gets the element that we are adding to
+                        element.appendChild(tag); //adds new element under selected element
+                        }
+                    }
+                }
+
+
+            }
+            
+        }
+      
+            }
+
+    }
+
+    async function shareEvent(){
+        let eventName = String(document.getElementById("seventName").value);
+                           // console.log(eventName);
+                            selectElement1 = document.querySelector('#smonth');
+                            let month = selectElement1.value;
+                        
+                            //console.log(month);
+                            let givenYear = Number(document.getElementById("sgivenYear").value);
+                           // console.log(givenYear);
+
+                            let hour = Number(document.getElementById("shour").value);
+                           // console.log(hour);
+
+                            let minutes = Number(document.getElementById("sminute").value);
+                           // console.log(minutes);
+                        
+                            selectElement2 = document.querySelector('#sampm');
+                            let ampm = selectElement2.value;
+                           // console.log(ampm);
+
+                            let day = Number(document.getElementById("sday").value);
+                           // console.log(day);
+
+                            selectElement3 = document.querySelector('#stag');
+                            let tag = selectElement3.value;
+                           // console.log(tag);
+                           let otherUser = String(document.getElementById("user").value);
+
+
+                           // console.log("here");
+                            if(month == "February"){
+                            
+                                if(day > 28 || day <= 0){
+                                    alert("Invalid date try again");
+                                    return;
+                                }
+                            }
+                        
+                            if(month == "September" || month == "April"|| month == "June" || month =="November"){
+                                if(day > 30 || day <= 0){
+                                    alert("Invalid date try again");
+                                    return;
+                                }
+                            }
+                            
+                            else{
+                                if(day > 31 || day <0){
+                                
+                                    alert("Invalid date try again");
+                                    return;
+                                }
+                            }
+                            if(givenYear<=0){
+                                alert("Invalid year try again");
+                                    return;
+                            }
+
+                            if(hour >12 || hour <1){
+                                alert("Invalid hour try again");
+                                    return;
+                            }
+                            if(minutes >60 || minutes <0){
+                                alert("Invalid minute try again");
+                                    return;
+                            }
+
+                            
+
+
+                            const sdata = {'eventName': eventName, 'month': month, 'year': givenYear, 'hour': hour,
+                                            'minute': minutes, 'ampm' : ampm, 'day':day, 'tag': tag, 'token': token, 'otherUser': otherUser};
+                            
+                            //console.log(JSON.stringify(data));
+                            fetch("shareEvent.php", {
+                                method: 'POST',
+                                body: JSON.stringify(sdata),
+                                headers: { 'content-type': 'application/json' }
+                            })
+                                .then(response => response.json())
+                                .then(data => document.getElementById("addEventMsg").innerHTML = (data.success ? "Event deleted successfully" : `Error deleting event ${data.message}`))
+                                .then(updateCalendar())
+                                .catch(err => console.error(err));
+
+
+    }
+
+
+
+   async function shareCalendar(){
+    let userName = String(document.getElementById("shareUser").value);
+    console.log("userName:");
+    console.log(userName);
+    const data = {'currentId' : userId, 'newUsername' : userName};
+
+    let response = await fetch("shareCalendar.php", {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: { 'content-type': 'application/json'}
+            })
+            if (response.ok) {
+                console.log("shared");
+                let output = await response.json();
+                console.log(output)
+
+
+            }
+    }
+
+
+
+
+    async function viewOtherCalendar(){
+        let userName = String(document.getElementById("view").value);
+        console.log("userName:");
+        console.log(userName);
+        const data = {'currentId' : userId, 'userToView' : userName};
+
+        let response = await fetch("viewOtherCalendar.php", {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: { 'content-type': 'application/json'}
+            })
+            if (response.ok) {
+                //console.log("shared");
+                let output = await response.json();
+                console.log(output);
+                console.log(output.newId)
+                userId = output.newId;
+                console.log(userId);
+                updateCalendar();
+
+
+            }
+
+
+    }
+
+
+
+
+
+        </script>
+
+        <div class = "fullPage">
+            <div id = "monthName">
+                <a href = "https://www.youtube.com/watch?v=xvFZjo5PgG0" id = "thisMonth"></a>
+                
+                <a href = "https://www.youtube.com/watch?v=vYGxVkBzlLY" id = "year"></a>
+                <img src = "1boo.jpeg" id = "leftBoo">
+                <img src = "1boo.jpeg" id = "rightBoo">
+                
+                
+
+                <!-- Here is where we will put the name of the month -->
+            </div>
+            <div id = grid>
+                        <!-- <div id = "weekdayLabels" class = "week"> -->
+                            <div id = "sun" class = "day">
+                                Sunday
+                            </div>
+                            <div id = "mon" class = "day">
+                                Monday
+                            </div>
+                            <div id = "tues" class = "day">
+                                Tuesday
+                            </div>
+                            <div id = "wed" class = "day">
+                                Wednesday
+                            </div>
+                            <div id = "thurs" class = "day">
+                                Thursday
+                            </div>
+                            <div id = "frid" class = "day">
+                                Friday
+                            </div>
+                            <div id = "sat" class = "day">
+                                Saturday
+                            </div>
+
+                        <!-- </div> -->
+
+                           
+                            <!-- this is a container for the calendar itself -->
+                            <!-- <div id = "week1" class = "week"> -->
+                                <div class = "day week1">
+                                    <p id = "1Sun">
+
+                                    </p>
+                                    
+                                </div>
+                                <div class = "day week1">
+                                    <p id = "1Mon"></p>
+                                </div>
+                                <div class = "day week1">
+                                    <p id = "1Tue"></p>
+                                </div>
+                                <div class = "day week1">
+                                    <p id = "1Wed"></p>
+                                </div>
+                                <div  class = "day week1">
+                                    <p id = "1Thu"></p>
+                                </div>
+                                <div  class = "day week1">
+
+                                    <p id = "1Fri"></p>
+                                </div>
+                                <div  class = "day week1">
+
+                                    <p id = "1Sat"></p>
+                                </div>
+
+                            <!-- </div> -->
+                            <!-- <div id = "week2" class = "week"> -->
+                                <div  class = "day week2">
+                                    <p id = "2Sun"></p>
+                                </div>
+                                <div class = "day week2">
+                                    <p id = "2Mon"></p>
+                                </div>
+                                <div class = "day week2">
+                                   <p id = "2Tue" ></p>
+                                </div>
+                                <div class = "day week2">
+                                    <p  id = "2Wed"></p>
+                                </div>
+                                <div  class = "day week2">
+                                    <p id = "2Thu"></p>
+                                </div>
+                                <div class = "day week2">
+                                    <p  id = "2Fri"></p>
+                                </div>
+                                <div  class = "day week2">
+                                    <p id = "2Sat"></p>
+                                </div>
+                                
+                            <!-- </div> -->
+                            <!-- <div id = "week3" class = "week"> -->
+                                <div  class = "day week3">
+                                    <p id = "3Sun"></p>
+                                </div>
+                                <div class = "day week3">
+                                    <p id = "3Mon" ></p>
+                                </div>
+                                <div  class = "day week3">
+                                    <p id = "3Tue"></p>
+                                </div>
+                                <div  class = "day week3">
+                                    <p id = "3Wed"></p>
+                                </div>
+                                <div  class = "day week3">
+                                     <p id = "3Thu"></p>
+                                </div>
+                                <div  class = "day week3">
+                                    <p id = "3Fri"></p>
+                                </div>
+                                <div  class = "day week3">
+                                    <p id = "3Sat"></p>
+                                </div>
+                                
+                            <!-- </div> -->
+                            <!-- <div id = "week4" class = "week"> -->
+                                <div  class = "day week4">
+                                    <p id = "4Sun"></p>
+                                </div>
+                                <div  class = "day week4">
+                                    <p id = "4Mon"></p>
+                                </div>
+                                <div  class = "day week4">
+                                    <p id = "4Tue"></p>
+                                </div>
+                                <div  class = "day week4">
+                                    <p id = "4Wed"></p>
+                                </div>
+                                <div class = "day week4">
+                                    <p id = "4Thu" ></p>
+                                </div>
+                                <div class = "day week4">
+                                    <p id = "4Fri"></p>
+                                </div>
+                                <div class = "day week4">
+                                    <p id = "4Sat"></p>
+                                </div>
+                                
+                            <!-- </div> -->
+                            <!-- <div id = "week5" class = "week"> -->
+                                <div class = "day week5">
+                                    <p  id = "5Sun"></p>
+                                </div>
+                                <div class = "day week5">
+                                    <p id = "5Mon"></p>
+                                </div>
+                                <div  class = "day week5">
+                                    <p id = "5Tue"></p>
+                                    
+                                </div>
+                                <div class = "day week5">
+                                    <p id = "5Wed"></p>
+                                </div>
+                                <div class = "day week5">
+                                    <p id = "5Thu"></p>
+                                </div>
+                                <div class = "day week5">
+                                    <p id = "5Fri"></p>
+                                </div>
+                                <div class = "day week5">
+                                    <p id = "5Sat"></p>
+                                </div>
+                            <!-- </div> -->
+                            <div class = "day week6">
+                                <p  id = "6Sun"></p>
+                            </div>
+                            <div class = "day week6">
+                                <p id = "6Mon"></p>
+                            </div>
+                            <div  class = "day week6">
+                                <p id = "6Tue"></p>
+                            </div>
+                            <div class = "day week6">
+                                <p id = "6Wed"></p>
+                            </div>
+                            <div class = "day week6">
+                                <p id = "6Thu"></p>
+                            </div>
+                            <div class = "day week6">
+                                <p id = "6Fri"></p>
+                            </div>
+                            <div class = "day week6">
+                                <p id = "6Sat"></p>
+                            </div>
+                
+                    
+                       
+            </div>
+            
+
+
+
+
+
+
+        </div>
+        <label for = "next"> Next Month </label>
+        <input type = "button" value = "next" id = "next" name = "next">
+
+        
+
+        <label for = "back"> Previous Month </label>
+        <input type = "button" id = "back" value = "back" name = "back">
+
+        <input type = "button" value = "update" id = "update" name = "update">
+
+       
+
+        <script>
+            
+            const monthNames = ["January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"];
+            document.getElementById("next").addEventListener("click", function(event){
+
+                        let weeks = currentMonth.getWeeks();
+                        let weekNum = 0;
+
+                        const monthName = monthNames[monthNum]; 
+                        const yearToGet = year;
+                    //let thisevents = [];
+
+                    const data = {'monthName': monthName, 'year': yearToGet };
+                        //removing divs
+                        //loop through all of the divs and then delete them
+                        for(let w in weeks){
+                            let days = weeks[w].getDates();
+                
+                            weekNum = weekNum + 1;
+
+                        for(let d in days){
+                        
+
+                            let mdays = String(days[d]) //gets the info for days of the current week
+                    
+                            let week = mdays.split(" "); //makes array out of info
+                
+
+                            let set = String(week[2])
+                            let num = String(weekNum);
+                            let thisId = num.concat(week[0]); //id for MOn jan 1st  = 1Mon
+
+                            let parent = document.getElementById(thisId);
+                            while (parent.firstChild) {
+                                parent.removeChild(parent.firstChild);
+                            }
+
+
+                            }
+                        }
+                    
+
+                        if(currentMonth.month == 11){
+                            year = Number(year) + 1;
+                            monthNum = 0;
+                        }
+                        else{
+                            monthNum = monthNum + 1;
+                        }
+                        currentMonth = currentMonth.nextMonth();
+                        
+                        
+                        updateCalendar();
+                        
+                        
+
+                        document.getElementById("thisMonth").innerHTML = String(monthNames[currentMonth.month]);
+                        document.getElementById("year").innerHTML = String(year);
+
+
+                        
+                        })
+
+            document.getElementById("back").addEventListener("click", function(event){
+                
+                let weeks = currentMonth.getWeeks();
+                        let weekNum = 0;
+
+                        const monthName = monthNames[monthNum]; 
+                        const yearToGet = year;
+                    //let thisevents = [];
+
+                    const data = {'monthName': monthName, 'year': yearToGet };
+                        //removing divs
+                        //loop through all of the divs and then delete them
+                        for(let w in weeks){
+                            let days = weeks[w].getDates();
+                
+                            weekNum = weekNum + 1;
+
+                        for(let d in days){
+                        
+
+                            let mdays = String(days[d]) //gets the info for days of the current week
+                    
+                            let week = mdays.split(" "); //makes array out of info
+                
+
+                            let set = String(week[2])
+                            let num = String(weekNum);
+                            let thisId = num.concat(week[0]); //id for MOn jan 1st  = 1Mon
+
+                            let parent = document.getElementById(thisId);
+                            while (parent.firstChild) {
+                                parent.removeChild(parent.firstChild);
+                            }
+
+
+                            }
+                        }
+                    
+
+
+
+
+
+
+
+                if(currentMonth.month == 0){
+                    year = Number(year) - 1;
+                    monthNum = 11;
+                }
+                else{
+                monthNum = monthNum - 1;
+                }
+                currentMonth = currentMonth.prevMonth();
+                updateCalendar();
+                //.log(currentMonth);
+                //console.log(data);
+                
+
+                document.getElementById("thisMonth").innerHTML = String(monthNames[currentMonth.month]);
+                document.getElementById("year").innerHTML = String(year);
+            })
+        </script>
+
+
+
+<br>
+
+
+    <label for = "username">Username:</label>
+    <textarea id = "username"></textarea>
+
+    
+
+
+    <label for = "password">Password:</label>
+    <textarea id = "password"></textarea>
+    
+
+    <button id="loginButton">Login</button>
+
+    <p id = "loginMsg"></p>
+
+   
+    <p>Here is where you register to become a user</p>
+    <br>
+    <label for = "newUsername"> New username:</label>
+    <textarea id = "newUsername"></textarea>
+
+    <label for = "newPassword">New password:</label>
+    <textarea id = "newPassword"></textarea>
+ 
+
+    <button id="registerButton">Register</button>
+
+    <p id = "registerMsg"> </p>
+    
+    <br>
+
+    <p>Here is where you can share your calendar with another user:</p>
+    <label for = "shareUser">Username:</label>
+    <textarea id = "shareUser"></textarea>
+    <input type = "button" value = "share" id = "shareButton" name = "share">
+
+
+    <p>Here is where you can view another person's calendar:</p>
+    <label for = "view">Username:</label>
+    <textarea id = "view"></textarea>
+    <input type = "button" value = "view" id = "viewButton" name = "view">
+    
+
+    <p>Here is where you add an event</p>
+    <form>
+        <input type = "text" placeholder = "Event Name" id = "eventName">
+        <select name = "month" id = "month">
+            <option value = "January">January</option>
+            <option value = "Febuary">Febuary</option>
+            <option value = "March">March</option>
+            <option value = "April">April</option>
+            <option value = "May">May</option>
+            <option value = "June">June</option>
+            <option value = "July">July</option>
+            <option value = "August">August</option>
+            <option value = "September">September</option>
+            <option value = "October">October</option>
+            <option value = "November">November</option>
+            <option value = "December">December</option>
+        </select>
+        <input type = "number" placeholder = "date" id = "day">
+        <input type = "number" placeholder = "year"  id = "givenYear">
+        <input type = "number" placeholder = "hour" id = "hour">
+        <input type = "number" placeholder = "minute" id = "minute">
+        <select id = "ampm">
+            <option value = "am">am</option>
+            <option value = "pm">pm</option>
+        </select>
+        <label for = "tag">Tag the event:</label>
+        <select id = "tag">
+            <option value = "default">default</option>
+            <option value = "birthday">birthday</option>
+            <option value = "exam">exam</option>
+            <option value = "due_date">due date</option>
+            <option value = "meeting">meeting</option>
+        </select>
+    </form>
+        
+        <input type = "button" value = "Create Event" id = "createEvent" name = "createEvent">
+        <p id = "addEventMsg"></p>
+
+        <br>
+
+        <p>Here is where you delete an event</p>
+    <form>
+        <input type = "text" placeholder = "Event Name" id = "deventName">
+        <select name = "month" id = "dmonth">
+            <option value = "January">January</option>
+            <option value = "Febuary">Febuary</option>
+            <option value = "March">March</option>
+            <option value = "April">April</option>
+            <option value = "May">May</option>
+            <option value = "June">June</option>
+            <option value = "July">July</option>
+            <option value = "August">August</option>
+            <option value = "September">September</option>
+            <option value = "October">October</option>
+            <option value = "November">November</option>
+            <option value = "December">December</option>
+        </select>
+        <input type = "number" placeholder = "date" id = "dday">
+        <input type = "number" placeholder = "year"  id = "dgivenYear">
+        <input type = "number" placeholder = "hour" id = "dhour">
+        <input type = "number" placeholder = "minute" id = "dminute">
+        <select id = "dampm">
+            <option value = "am">am</option>
+            <option value = "pm">pm</option>
+        </select>
+        <label for = "dtag">Event tag:</label>
+        <select id = "dtag">
+            <option value = "default">default</option>
+            <option value = "birthday">birthday</option>
+            <option value = "exam">exam</option>
+            <option value = "due_date">due date</option>
+            <option value = "meeting">meeting</option>
+        </select>
+    </form>
+    <input type = "button" value = "Delete Event" id = "deleteEvent" name = "deleteEvent">
+        <p id = "deleteEventMsg"></p>
+
+
+
+
+
+            <br>
+            <br>
+
+
+
+
+
+
+
+
+                    <p>Insert information about the event you want to edit</p>
+                    <form>
+                        <input type = "text" placeholder = "Event Name" id = "oeventName">
+                        <select name = "month" id = "omonth">
+                            <option value = "January">January</option>
+                            <option value = "Febuary">Febuary</option>
+                            <option value = "March">March</option>
+                            <option value = "April">April</option>
+                            <option value = "May">May</option>
+                            <option value = "June">June</option>
+                            <option value = "July">July</option>
+                            <option value = "August">August</option>
+                            <option value = "September">September</option>
+                            <option value = "October">October</option>
+                            <option value = "November">November</option>
+                            <option value = "December">December</option>
+                        </select>
+                        <input type = "number" placeholder = "date" id = "oday">
+                        <input type = "number" placeholder = "year"  id = "ogivenYear">
+                        <input type = "number" placeholder = "hour" id = "ohour">
+                        <input type = "number" placeholder = "minute" id = "ominute">
+                        <select id = "oampm">
+                            <option value = "am">am</option>
+                            <option value = "pm">pm</option>
+                        </select>
+                        <label for = "otag">Event tag:</label>
+                        <select id = "otag">
+                            <option value = "default">default</option>
+                            <option value = "birthday">birthday</option>
+                            <option value = "exam">exam</option>
+                            <option value = "due_date">due date</option>
+                            <option value = "meeting">meeting</option>
+                        </select>
+                    </form>
+                        
+                
+                
+                
+                        <p>Insert new information</p>
+                    <form>
+                        <input type = "text" placeholder = "Event Name" id = "neventName">
+                        <select name = "month" id = "nmonth">
+                            <option value = "January">January</option>
+                            <option value = "Febuary">Febuary</option>
+                            <option value = "March">March</option>
+                            <option value = "April">April</option>
+                            <option value = "May">May</option>
+                            <option value = "June">June</option>
+                            <option value = "July">July</option>
+                            <option value = "August">August</option>
+                            <option value = "September">September</option>
+                            <option value = "October">October</option>
+                            <option value = "November">November</option>
+                            <option value = "December">December</option>
+                        </select>
+                        <input type = "number" placeholder = "date" id = "nday">
+                        <input type = "number" placeholder = "year"  id = "ngivenYear">
+                        <input type = "number" placeholder = "hour" id = "nhour">
+                        <input type = "number" placeholder = "minute" id = "nminute">
+                        <select id = "nampm">
+                            <option value = "am">am</option>
+                            <option value = "pm">pm</option>
+                        </select>
+                        <label for = "ntag">Tag the event:</label>
+                        <select id = "ntag">
+                            <option value = "default">default</option>
+                            <option value = "birthday">birthday</option>
+                            <option value = "exam">exam</option>
+                            <option value = "due_date">due date</option>
+                            <option value = "meeting">meeting</option>
+                        </select>
+                    </form>
+                    <input type = "button" value = "editEvent" id = "editEvent" name = "editEvent">
+                        <p id = "editEventMsg"></p>
+                <br>
+                <br>
+
+                <p>Share event with another user: </p>
+                <form>
+                    <input type = "text" placeholder = "Event Name" id = "seventName">
+                    <select name = "month" id = "smonth">
+                        <option value = "January">January</option>
+                        <option value = "Febuary">Febuary</option>
+                        <option value = "March">March</option>
+                        <option value = "April">April</option>
+                        <option value = "May">May</option>
+                        <option value = "June">June</option>
+                        <option value = "July">July</option>
+                        <option value = "August">August</option>
+                        <option value = "September">September</option>
+                        <option value = "October">October</option>
+                        <option value = "November">November</option>
+                        <option value = "December">December</option>
+                    </select>
+                    <input type = "number" placeholder = "date" id = "sday">
+                    <input type = "number" placeholder = "year"  id = "sgivenYear">
+                    <input type = "number" placeholder = "hour" id = "shour">
+                    <input type = "number" placeholder = "minute" id = "sminute">
+                    <select id = "sampm">
+                        <option value = "am">am</option>
+                        <option value = "pm">pm</option>
+                    </select>
+                    <label for = "stag">Event tag:</label>
+                    <select id = "stag">
+                        <option value = "default">default</option>
+                        <option value = "birthday">birthday</option>
+                        <option value = "exam">exam</option>
+                        <option value = "due_date">due date</option>
+                        <option value = "meeting">meeting</option>
+                    </select>
+                   
+                    <input type = "text" id = "user" placeholder = "username">
+                    
+                 
+                </form>
+                <input type = "button" value = "share" id = "share" name = "share">
+
+                
+                
+
+<br>
+<br>
+
+        <input type = "button" value = "loggout" id = "loggout" name = "loggout">
+        
+    
+    <br>
+
+    <script>
+        
+      
+        document.getElementById("thisMonth").innerHTML = String(monthNames[currentMonth.month]);
+        document.getElementById("year").innerHTML = String(year);
+        document.getElementById("loginButton").addEventListener("click", loginAjax, false);
+        document.getElementById("loginButton").addEventListener("click", getEventsForThisMonth, false);
+        document.getElementById("registerButton").addEventListener("click", registerAjax, false);
+        document.getElementById("createEvent").addEventListener("click", addEvent, false);
+        document.getElementById("createEvent").addEventListener("click", updateCalendar, false);
+        document.addEventListener("DOMContentLoaded", updateCalendar, false);
+        document.addEventListener("DOMContentLoaded", checkLoggedIn, false);
+        document.getElementById("loggout").addEventListener("click", loggoutUser, false);
+        document.getElementById("deleteEvent").addEventListener("click", deleteEvent, false);
+        document.getElementById("deleteEvent").addEventListener("click", updateCalendar, false);
+        document.getElementById("editEvent").addEventListener("click", editEvent, false);
+        document.getElementById("editEvent").addEventListener("click", updateCalendar, false);
+        document.getElementById("update").addEventListener("click", updateCalendar, false);
+        document.getElementById("share").addEventListener("click", shareEvent, false);
+        document.getElementById("shareButton").addEventListener("click", shareCalendar, false);
+        document.getElementById("viewButton").addEventListener("click", viewOtherCalendar, false);
+        document.getElementById("viewButton").addEventListener("click", updateCalendar, false);
+
+        
+        </script>
+
+    </body>
+</html>

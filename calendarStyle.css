@@ -1,0 +1,69 @@
+#grid{
+    display: grid;
+    grid-template-columns: auto auto auto auto auto auto auto;
+    background-color: rgb(163, 118, 252);
+}
+body{
+    background-color: rgb(227, 180, 212);
+}
+
+
+/* https://www.w3schools.com/css/css_grid.asp */
+.day{ 
+    border: 1px solid black;
+    padding: 10px;
+    font-size: small;
+    text-align: center;
+}
+
+/* #monthName{
+    margin: auto;
+    width: 50%;
+    border: 3px solid green;
+    padding: 10px;
+    text-align: center;
+} */
+#thisMonth{
+   
+    margin-right: auto;
+    margin-left:auto;
+    display: block;
+    width: 50%;
+    border: 3px solid rgb(165, 12, 145);
+    padding: 10px;
+    text-align: center;
+    font-size: X-large;
+
+}
+#leftBoo{
+    margin-top: 5%;
+    float: left;
+    top: 0;
+}
+#rightBoo{
+    margin-top: 5%;
+    float: right;
+    top: 0;
+}
+#year{
+    margin-left: 37.5%;
+    font-size:x-large;
+}
+
+    
+.birthday{
+    background-color: pink;
+
+}
+.exam{
+    background-color: aqua;
+}
+.meeting{
+    background-color: orange;
+}
+.due_date{
+    background-color: yellow;
+}
+.update{
+    float:right;
+}
